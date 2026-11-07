@@ -1,0 +1,9 @@
+# Normalize line endings: store LF in the repository on every platform.
+* text=auto eol=lf
+
+# Keep binary fixtures binary.
+*.png binary
+*.jpg binary
+*.gif binary
+*.whl binary
+*.gz binary

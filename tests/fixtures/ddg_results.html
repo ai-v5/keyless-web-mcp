@@ -1,0 +1,43 @@
+<!-- Minimal hand-written DuckDuckGo HTML-endpoint result page (offline fixture).
+     Structure mirrors the public html.duckduckgo.com markup: every organic hit is a
+     div.result containing a.result__a and a.result__snippet. No real user data. -->
+<!DOCTYPE html>
+<html lang="en">
+<head><title>python at DuckDuckGo</title></head>
+<body>
+<div id="links" class="results">
+
+  <div class="result results_links results_links_deep web-result">
+    <div class="links_main links_deep result__body">
+      <h2 class="result__title">
+        <a rel="nofollow" class="result__a"
+           href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Falpha&amp;rut=0123456789abcdef">Alpha &amp; the Python Language</a>
+      </h2>
+      <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Falpha">Alpha snippet: a short description of the first hit.</a>
+      <div class="result__extras"><span class="result__url">example.com</span></div>
+    </div>
+  </div>
+
+  <div class="result results_links results_links_deep web-result">
+    <div class="links_main links_deep result__body">
+      <h2 class="result__title">
+        <a rel="nofollow" class="result__a"
+           href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org%2Fbeta%3Fx%3D1%26y%3D2&amp;rut=deadbeef">Beta page with query string</a>
+      </h2>
+      <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org%2Fbeta%3Fx%3D1%26y%3D2">Beta snippet text.</a>
+    </div>
+  </div>
+
+  <div class="result results_links results_links_deep web-result">
+    <div class="links_main links_deep result__body">
+      <h2 class="result__title">
+        <a rel="nofollow" class="result__a" href="https://example.net/gamma">Gamma absolute href</a>
+      </h2>
+      <a class="result__snippet" href="https://example.net/gamma">Gamma snippet text.</a>
+    </div>
+  </div>
+
+</div>
+<div class="nav-link"><a href="https://example.com/next">Next page</a></div>
+</body>
+</html>

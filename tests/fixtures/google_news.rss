@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Minimal hand-written Google News RSS feed (offline fixture).
+     Item 1: complete.  Item 2: no <description>.  Item 3: no <source>.
+     Item 4: HTML description, used to prove snippet cleaning. -->
+<rss version="2.0">
+  <channel>
+    <title>climate - Google News</title>
+    <link>https://news.google.com/</link>
+    <description>climate - Google News</description>
+    <language>en-US</language>
+    <item>
+      <title>Example Wire: coastal cities adapt to rising seas</title>
+      <link>https://news.example.com/articles/coastal-cities-adapt</link>
+      <guid isPermaLink="false">example-item-0001</guid>
+      <pubDate>Mon, 02 Nov 2026 08:15:00 GMT</pubDate>
+      <description>Example description text for the coastal cities story.</description>
+      <source url="https://www.example.com">Example Wire</source>
+    </item>
+    <item>
+      <title>Second story without a description</title>
+      <link>https://news.example.com/articles/second-story</link>
+      <guid isPermaLink="false">example-item-0002</guid>
+      <pubDate>Tue, 03 Nov 2026 10:00:00 GMT</pubDate>
+      <source url="https://www.example.org">Another Outlet</source>
+    </item>
+    <item>
+      <title>Third story without a source element</title>
+      <link>https://news.example.com/articles/third-story</link>
+      <guid isPermaLink="false">example-item-0003</guid>
+      <pubDate>Wed, 04 Nov 2026 12:30:00 GMT</pubDate>
+      <description>Plain description for the third story.</description>
+    </item>
+    <item>
+      <title>Fourth story with an HTML description</title>
+      <link>https://news.example.com/articles/fourth-story</link>
+      <description>&lt;a href="https://news.example.com/articles/fourth-story"&gt;Fourth story&lt;/a&gt;&amp;nbsp;&amp;nbsp;&lt;font color="#6f6f6f"&gt;Example Wire&lt;/font&gt;</description>
+      <source url="https://www.example.com">Example Wire</source>
+    </item>
+  </channel>
+</rss>

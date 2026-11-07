@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>分布式缓存的三种失效策略 - 示例技术站</title>
+  <script>var _hmt = []; window.__noise__ = "script-should-not-be-extracted";</script>
+  <style>.nav{color:#333}</style>
+</head>
+<body>
+<header class="site-header">
+  <nav class="nav"><a href="https://example.com/">首页</a> | <a href="https://example.com/about">关于本站</a> | 登录</nav>
+</header>
+
+<article>
+  <h1>分布式缓存的三种失效策略</h1>
+  <p class="byline">作者：示例作者　发布时间：2026-10-30</p>
+
+  <p>在高并发系统里，缓存失效策略直接决定了数据库的瞬时压力。旁路缓存最常见的做法是先更新数据库，再删除缓存，这样可以最大限度避免脏数据，但删除失败时会留下陈旧副本。为了降低这种风险，工程上一般会引入延迟双删，也就是在删除之后等待一个主从复制周期再删一次。</p>
+
+  <p>第二种策略是基于过期时间的被动失效。它的实现最简单，只要给键设置TTL，写入端不需要关心一致性，读端遇到缺失再回源即可。缺点是在过期瞬间可能出现大量并发回源请求，也就是所谓的缓存击穿，通常需要配合互斥锁或者逻辑过期时间来做保护。</p>
+
+  <p>第三种策略是主动推送失效通知。服务端在数据变更后向所有缓存节点广播失效消息，节点收到通知就把对应键标记为不可用。这种方案的一致性最好，但对消息通道的可靠性要求很高，一旦通知丢失，仍然需要过期时间作为兜底。</p>
+
+  <p>最后需要强调的是，任何缓存策略都不是孤立的选择。参考资料见<a href="https://example.com/cache-design">缓存设计说明</a>，实际落地时必须结合业务的读多写少特征、数据规模以及可以接受的陈旧窗口来综合判断，并且用监控指标持续验证命中率与数据库负载的变化。没有监控的缓存治理，本质上是在赌运气。</p>
+</article>
+
+<footer class="site-footer">
+  <p>版权所有 示例技术站 | 京ICP备00000000号 | Cookie 设置 | 联系我们 support@example.com</p>
+</footer>
+</body>
+</html>

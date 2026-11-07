@@ -1,0 +1,22 @@
+{
+  "batchcomplete": "",
+  "query": {
+    "searchinfo": { "totalhits": 2 },
+    "search": [
+      {
+        "ns": 0,
+        "title": "Python (programming language)",
+        "pageid": 23862,
+        "snippet": "<span class=\"searchmatch\">Python</span> is a high-level, general-purpose programming language.",
+        "timestamp": "2026-01-02T03:04:05Z"
+      },
+      {
+        "ns": 0,
+        "title": "Python",
+        "pageid": 46343,
+        "snippet": "Python may refer to snakes or the &quot;programming&quot; language.",
+        "timestamp": "2026-01-03T04:05:06Z"
+      }
+    ]
+  }
+}
