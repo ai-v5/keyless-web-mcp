@@ -6,8 +6,11 @@
 
 | 工具 | 作用 |
 |---|---|
-| `web_search` | 依次查询 DuckDuckGo / Google News / Wikipedia，按 URL 去重合并，返回 JSON |
+| `web_search` | 并行查询 Google / DuckDuckGo / Bing / Google News，轮转交织合并后返回 JSON |
 | `web_fetch` | 抓取一个 URL，返回可读正文（JSON 接口则美化输出） |
+
+`google_web` 引擎用本机的 Chrome 或 Edge 渲染 `google.com/search`，只有它需要浏览器；其余引擎与
+`web_fetch` 都是纯 HTTP——机器上没有浏览器时 `google_web` 自行退场，其他引擎照常工作。
 
 ## 为什么需要它
 
@@ -76,9 +79,9 @@ Windows 下若客户端不解析 `PATH` 里的 `uvx`，把 `command` 改成 `uv.
 |---|---|---|---|
 | `query` | string | 必填 | 查询词 |
 | `max_results` | int | 10 | 1–20 |
-| `engines` | string[] | 配置的默认列表 | 取值：`bing` / `duckduckgo` / `google` / `wikipedia` |
+| `engines` | string[] | 配置的默认列表 | 取值：`google_web` / `duckduckgo` / `bing` / `google` / `wikipedia` |
 
-返回 JSON 数组（无结果时返回 `[]`），字段为 `title`、`url`、`snippet`、`engine`；新闻结果额外带 `source`、`date`。引擎按传入顺序执行，结果按 URL 去重合并。
+返回 JSON 数组（无结果时返回 `[]`），字段为 `title`、`url`、`snippet`、`engine`；新闻结果额外带 `source`、`date`。所有引擎并发执行，结果按 URL 去重后**轮转交织**，一次查询能同时引用多个独立来源，也不会让某个引擎的结果被长列表挤掉。
 
 **`web_fetch`**
 
@@ -101,24 +104,28 @@ Hint: Pass an absolute http:// or https:// URL, for example https://docs.python.
 
 | 引擎 | 端点 | 默认 | 说明 |
 |---|---|---|---|
-| `duckduckgo` | `html.duckduckgo.com/html/` | ✅ 第一 | 无 JS 的 HTML 端点，最稳的默认 |
-| `google` | `news.google.com/rss/search` | ✅ 第二 | **是 Google News RSS，不是网页索引**，偏向新闻/技术报道；条目 URL 是 Google 新闻跳转链接，浏览器能打开，但 `web_fetch` 抓不到正文 |
-| `wikipedia` | `*.wikipedia.org/w/api.php` | ✅ 第三 | 百科类兜底，公共 API 稳定；**自带**描述性 User-Agent，因为 Wikimedia 对伪装浏览器的客户端直接返回 403 |
-| `bing` | `www.bing.com/search` | ❌ 需显式指定 | Bing 需要 cookie 才给自然结果，机房 IP 常返回垃圾/垃圾广告，故不进默认序列；`engines: ["bing"]` 仍可用 |
+| `google_web` | `www.google.com/search` | ✅ 第一 | **真正的 Google 网页索引**，用无头 Chrome/Edge 渲染。纯 HTTP 客户端只能拿到 JS 外壳，而自带 `HeadlessChrome` UA 会吃到「unusual traffic」拦截页；换成桌面 UA 就正常。结果 URL 从 Google 的 `/goto` 跳转恢复（读它的 `302`，拿不到时用 `<cite>` 面包屑兜底）。每次约 4–8 秒，且需要本机有浏览器 |
+| `duckduckgo` | `html.duckduckgo.com/html/` | ✅ 第二 | 无 JS 的 HTML 端点，免 key 免 cookie；跳转链接会解 `uddg=` |
+| `bing` | `www.bing.com/search` | ✅ 第三 | 纯 HTTP 就能拿自然结果；点击包装链接（`/ck/a?...&u=a1<base64url>`）会解码回真实 URL，市场参数（`mkt`/`setlang`）跟随查询语言，中文查询不会变成英文足球比分 |
+| `google` | `news.google.com/rss/search` | ✅ 第四 | **是 Google News RSS，不是网页索引**，偏向新闻/技术报道；条目 URL 是 Google 新闻跳转链接，浏览器能打开，但 `web_fetch` 抓不到正文 |
+| `wikipedia` | `*.wikipedia.org/w/api.php` | ❌ 需显式指定 | 百科类兜底，公共 API 稳定；**自带**描述性 User-Agent，因为 Wikimedia 对伪装浏览器的客户端直接返回 403 |
 
-默认顺序：`duckduckgo` → `google` → `wikipedia`。单个引擎失败不影响整体，其余引擎结果照常返回；全部失败或全部无结果时返回 `[]`。
+默认顺序：`google_web` → `duckduckgo` → `bing` → `google`。单个引擎失败不影响整体，其余引擎结果照常返回；全部失败或全部无结果时返回 `[]`。
 
 ## 配置项（环境变量）
 
 | 变量 | 默认 | 含义 |
 |---|---|---|
 | `MCP_WEB_PROXY` | 未设置 | 兜底代理，`host:port` 或 `http://host:port`；始终先直连 |
-| `KEYLESS_WEB_ENGINES` | `duckduckgo,google,wikipedia` | 默认引擎列表（逗号分隔，未知名字丢弃） |
+| `KEYLESS_WEB_ENGINES` | `google_web,duckduckgo,bing,google` | 默认引擎列表（逗号分隔，未知名字丢弃） |
 | `KEYLESS_WEB_MIN_INTERVAL` | `1.0` | 同一 host 两次请求的最小间隔（秒），`0` 关闭 |
 | `KEYLESS_WEB_CACHE_TTL` | `300` | 搜索结果缓存 TTL（秒），`0` 关闭 |
 | `KEYLESS_WEB_CACHE_TTL_FETCH` | `900` | 抓取页面缓存 TTL（秒），`0` 关闭 |
-| `KEYLESS_WEB_USER_AGENT` | 桌面 Chrome UA | 所有请求的 `User-Agent`（Wikipedia 引擎除外，见文末说明） |
+| `KEYLESS_WEB_USER_AGENT` | 桌面 Chrome UA | 抓取、`web_fetch` 与无头浏览器使用的 `User-Agent`（Wikipedia 引擎除外，见文末说明） |
 | `KEYLESS_WEB_TIMEOUT` | `15` | 单请求超时（秒） |
+| `KEYLESS_WEB_BROWSER` | 自动探测 | `google_web` 使用的浏览器可执行文件；填 `off` 关闭所有浏览器能力 |
+| `KEYLESS_WEB_BROWSER_TIMEOUT` | `25` | 单个页面渲染的墙钟预算（秒） |
+| `KEYLESS_WEB_BROWSER_WAIT` | `6000` | 交给浏览器的虚拟时间预算（毫秒） |
 
 `KEYLESS_WEB_USER_AGENT` 作用于 HTML 抓取引擎与 `web_fetch`。Wikipedia 引擎始终以
 `keyless-web-mcp/<版本>` 自报身份：Wikimedia 的
@@ -147,6 +154,7 @@ TLS 校验始终保持开启：启动时用 [`truststore`](https://github.com/se
 | `KEYLESS_NETWORK` | 所有后端都连不上，或对端返回 4xx/5xx | 检查网络后重试，或设置 `MCP_WEB_PROXY` |
 | `KEYLESS_RATE_LIMITED` | HTTP 429，或站点拒绝脚本访问（401/403） | 等待、调大 `KEYLESS_WEB_MIN_INTERVAL`，或换来源 |
 | `KEYLESS_PARSE` | 响应到达但无法解析 | 站点改版或返回拦截页，稍后重试 |
+| `KEYLESS_BROWSER` | `google_web` 渲染失败：没有 Chrome/Edge、浏览器崩溃或渲染预算用尽 | 装浏览器或用 `KEYLESS_WEB_BROWSER` 指定可执行文件；HTTP 引擎不受影响 |
 
 ## 合规提示
 
@@ -171,14 +179,15 @@ mypy src
 pytest -q
 ```
 
-分层约定：引擎只接收 `httpx.Client`，重试/代理/限速/缓存全部在 `net/transport.py` 与上层，因此每个引擎都能用 `httpx.MockTransport` 离线单测。
+分层约定：引擎只接收 `httpx.Client`，重试/代理/限速/缓存全部在 `net/transport.py` 与上层，因此每个引擎都能用 `httpx.MockTransport` 离线单测。唯一例外是 `google_web`：它的 DOM 来自
+`browser.dump_dom()`，只在解析后用同一个客户端去解 `/goto` 跳转，所以解析器依然可以离线测。
 
 ## Roadmap（可选，不作承诺）
 
-- DSH provider 插件：把两个能力做成 DSH 原生工具而非 MCP 工具；
 - 结果评分：近似去重 + 按标题/查询重合度排序，压缩模型需要读的 JSON；
 - 同一注册表下增加更多 keyless 引擎；
-- `web_fetch` 增加可选 `robots.txt` 预检查。
+- `web_fetch` 增加可选 `robots.txt` 预检查；
+- 复用一个常驻浏览器进程，而不是每次查询都拉起一次（`google_web` 那 4–8 秒基本都花在启动上）。
 
 ## 许可
 

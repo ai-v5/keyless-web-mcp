@@ -7,11 +7,15 @@ gives an agent two tools:
 
 | Tool | What it does |
 |---|---|
-| `web_search` | Queries DuckDuckGo, Google News and Wikipedia, merges the hits, returns JSON |
+| `web_search` | Queries Google, DuckDuckGo, Bing and Google News in parallel, interleaves the hits and returns JSON |
 | `web_fetch` | Fetches one URL and returns its readable main text (or pretty-printed JSON) |
 
 Both run over stdio, start in well under a second, and work the moment the process starts. There is
 nothing to sign up for and no key to paste.
+
+The `google_web` engine renders `google.com/search` in an installed Chrome or Edge, so that one
+engine needs a browser on the machine. Every other engine, and `web_fetch`, is pure HTTP: with no
+browser present `google_web` simply reports itself unavailable and the rest keep working.
 
 ## Why this exists
 
@@ -146,15 +150,16 @@ Hint: Pass an absolute http:// or https:// URL, for example https://docs.python.
 
 | Engine | Endpoint | Default | Notes |
 |---|---|---|---|
-| `duckduckgo` | `html.duckduckgo.com/html/` | ✅ first | No-JS HTML endpoint, most reliable default |
-| `google` | `news.google.com/rss/search` | ✅ second | **Google News RSS**, not the web index: news and tech coverage. Item URLs are Google News article links, which open in a browser but do not return article text to `web_fetch` |
-| `wikipedia` | `*.wikipedia.org/w/api.php` | ✅ third | Encyclopedic baseline; stable public API. Sends its own descriptive User-Agent, because Wikimedia answers HTTP 403 to browser-impersonating clients |
-| `bing` | `www.bing.com/search` | ❌ opt-in | Bing needs cookies to serve organic results and often answers with spam from datacenter IPs, so it is excluded from the default order. Still available via `engines: ["bing"]` |
+| `google_web` | `www.google.com/search` | ✅ first | **The real Google web index**, rendered in a headless Chrome/Edge. A plain HTTP client only receives a JavaScript shell, and the stock `HeadlessChrome` agent earns an "unusual traffic" page; a desktop agent returns normal results. Result URLs are recovered from Google's `/goto` redirector (the `302` it answers, with the `<cite>` breadcrumb as fallback). Costs roughly 4–8 s per search and needs a browser |
+| `duckduckgo` | `html.duckduckgo.com/html/` | ✅ second | No-JS HTML endpoint, no key and no cookie; redirect links are unwrapped from `uddg=` |
+| `bing` | `www.bing.com/search` | ✅ third | Organic results over plain HTTP; click-tracker links (`/ck/a?...&u=a1<base64url>`) are decoded back to the real URL, and the market (`mkt`/`setlang`) follows the query script so a Chinese query does not come back as English football scores |
+| `google` | `news.google.com/rss/search` | ✅ fourth | **Google News RSS, not the web index**: news and tech coverage. Item URLs are Google News article links, which open in a browser but do not return article text to `web_fetch` |
+| `wikipedia` | `*.wikipedia.org/w/api.php` | ❌ opt-in | Encyclopedic baseline; stable public API. Sends its own descriptive User-Agent, because Wikimedia answers HTTP 403 to browser-impersonating clients |
 
-Default order: `duckduckgo`, `google`, `wikipedia` (`bing` never runs unless requested).
-
-A single engine failing never fails the call: the remaining engines still answer. If every engine
-fails or finds nothing, `web_search` returns `[]`.
+Default order: `google_web`, `duckduckgo`, `bing`, `google`. Every engine runs concurrently and the
+hits are interleaved round-robin, so one answer can cite several independent sources without any
+backend disappearing behind a longer list. A single engine failing never fails the call; if every
+engine fails or finds nothing, `web_search` returns `[]`.
 
 ## Configuration
 
@@ -163,12 +168,15 @@ Everything is read from the environment, once, at start-up.
 | Variable | Default | Meaning |
 |---|---|---|
 | `MCP_WEB_PROXY` | *(unset)* | Fallback proxy, `host:port` or `http://host:port`. Direct is always tried first |
-| `KEYLESS_WEB_ENGINES` | `duckduckgo,google,wikipedia` | Default engine list (comma separated, unknown names dropped) |
+| `KEYLESS_WEB_ENGINES` | `google_web,duckduckgo,bing,google` | Default engine list (comma separated, unknown names dropped) |
 | `KEYLESS_WEB_MIN_INTERVAL` | `1.0` | Minimum seconds between two requests to the same host; `0` disables |
 | `KEYLESS_WEB_CACHE_TTL` | `300` | Search result cache TTL in seconds; `0` disables |
 | `KEYLESS_WEB_CACHE_TTL_FETCH` | `900` | Fetched page cache TTL in seconds; `0` disables |
-| `KEYLESS_WEB_USER_AGENT` | a desktop Chrome UA | `User-Agent` header for scraping and `web_fetch` (Wikipedia identifies itself, see below) |
+| `KEYLESS_WEB_USER_AGENT` | a desktop Chrome UA | `User-Agent` header for scraping, `web_fetch` and the rendered browser |
 | `KEYLESS_WEB_TIMEOUT` | `15` | Per-request timeout in seconds |
+| `KEYLESS_WEB_BROWSER` | auto-detected | Browser executable used by `google_web`; `off` disables all browser work |
+| `KEYLESS_WEB_BROWSER_TIMEOUT` | `25` | Wall-clock budget for one rendered page, in seconds |
+| `KEYLESS_WEB_BROWSER_WAIT` | `6000` | Virtual time budget handed to the browser, in milliseconds |
 
 Example:
 
@@ -221,6 +229,7 @@ Failures are reported to the model as `error[CODE]: message. Hint: ...`.
 | `KEYLESS_NETWORK` | No backend reached the host, or it answered 4xx/5xx | Check connectivity, retry, or set `MCP_WEB_PROXY` |
 | `KEYLESS_RATE_LIMITED` | HTTP 429, or the site refuses scripted access (401/403) | Wait, raise `KEYLESS_WEB_MIN_INTERVAL`, or use another source |
 | `KEYLESS_PARSE` | Response arrived but could not be parsed | The site changed its markup or served a block page; retry later |
+| `KEYLESS_BROWSER` | `google_web` could not render: no Chrome/Edge, a crash, or the render budget ran out | Install a browser or point `KEYLESS_WEB_BROWSER` at one; the HTTP engines are unaffected |
 
 ## Compliance
 
@@ -259,27 +268,32 @@ src/keyless_web/
 ├── config.py            # environment -> frozen Settings
 ├── errors.py            # KEYLESS_* codes, actionable hints
 ├── cache.py             # TTL cache + cache_key()
+├── browser.py           # headless Chrome/Edge -> rendered DOM (--dump-dom)
 ├── net/transport.py     # direct -> proxy fallback, rate limiting, truststore
 ├── engines/             # one module per engine, each just (client, query, n)
 │   ├── base.py          # SearchResult (pydantic) + Engine protocol
-│   ├── duckduckgo.py  google_news.py  wikipedia.py  bing.py
-│   └── __init__.py      # ENGINES registry + multi-engine search()
+│   ├── duckduckgo.py  bing.py  google_news.py  wikipedia.py
+│   ├── google_web.py    # parses the rendered Google page, recovers /goto URLs
+│   └── __init__.py      # ENGINES registry + parallel run + round-robin merge
 ├── fetch/extract.py     # trafilatura/BeautifulSoup extraction, JSON passthrough
 └── server.py            # MCP tool shell (declarations + argument validation only)
 ```
 
 Engines never build their own client: they receive an `httpx.Client`, which is why every engine can
-be unit-tested with `httpx.MockTransport` and zero network access.
+be unit-tested with `httpx.MockTransport` and zero network access. The one exception is `google_web`,
+which takes its DOM from `browser.dump_dom()` and only uses the client to resolve redirect links --
+so its parser is still exercised offline against a fixture.
 
 ## Roadmap
 
 Optional next steps, not commitments:
 
-- a DSH provider plugin so `web_search`/`web_fetch` are first-class DSH tools rather than MCP tools;
 - result scoring (dedupe near-duplicates, rank by title/query overlap) to shrink the JSON the model
   has to read;
 - additional keyless engines behind the same registry;
-- optional `robots.txt` pre-check for `web_fetch`.
+- optional `robots.txt` pre-check for `web_fetch`;
+- reuse one browser process across searches instead of one launch per query (the launch dominates
+  the ~4–8 s the `google_web` engine costs).
 
 ## License
 
