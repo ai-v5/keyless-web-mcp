@@ -1,0 +1,64 @@
+<!-- Hand-written stand-in for a rendered google.com/search page (offline fixture).
+     Mirrors the markup the live engine sees: organic results are
+     div.MjjYud blocks whose title is an <h3> inside an <a>; the href is either
+     Google's opaque /goto?url=... redirector or (rarely) the real URL; the
+     snippet lives in div.VwiC3b and the breadcrumb in <cite>.
+     Also present, and expected to be ignored: an ad slot, the AI-mode card and
+     the related-searches strip (no h3). No real user data. -->
+<!DOCTYPE html>
+<html lang="en">
+<head><title>python - Google Search</title></head>
+<body>
+<div id="search">
+  <div class="MjjYud">
+    <div class="g">
+      <a href="/goto?url=CAESYQHEIkXX1QHoqrPank3Fm_1V8dy27BhaAGNarSuq">
+        <br><h3 class="LC20lb">Alpha Python Guide</h3>
+      </a>
+      <div><cite>https://example.com › alpha</cite></div>
+      <div class="VwiC3b">Alpha snippet from the rendered page about <em>Python</em>.</div>
+    </div>
+  </div>
+  <div class="MjjYud">
+    <div class="g">
+      <a href="https://example.org/beta">
+        <br><h3 class="LC20lb">Beta result</h3>
+      </a>
+      <div><cite>https://example.org</cite></div>
+      <div class="VwiC3b">Beta snippet with a direct href.</div>
+    </div>
+  </div>
+  <div class="MjjYud">
+    <div class="g">
+      <a href="/goto?url=CAESbAHEIkXXp4x0JlivLmFCD">
+        <br><h3 class="LC20lb">Gamma unresolved</h3>
+      </a>
+      <div><cite>https://gamma.example › docs › intro</cite></div>
+      <div class="VwiC3b">Gamma snippet whose redirect never resolves.</div>
+    </div>
+  </div>
+  <div class="MjjYud">
+    <div>
+      <a href="/aclk?sa=L&amp;adurl=https://ads.example.com/click">
+        <h3>Sponsored: buy python now</h3>
+      </a>
+      <div class="VwiC3b">Paid placement that must never reach the model.</div>
+    </div>
+  </div>
+  <div class="MjjYud">
+    <div>
+      <a href="/?ictx=0&amp;sa=X&amp;ved=2ahUKEwi">
+        <h3>AI Mode replied:</h3>
+      </a>
+      <div class="VwiC3b">Model prose, not a document.</div>
+    </div>
+  </div>
+  <div class="MjjYud">
+    <div class="related">
+      <a href="/search?q=python+tutorial&amp;num=10">python tutorial</a>
+      <a href="/search?q=python+asyncio&amp;num=10">python asyncio</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>

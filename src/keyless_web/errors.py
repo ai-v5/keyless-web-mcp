@@ -22,12 +22,16 @@ KEYLESS_BAD_URL = "KEYLESS_BAD_URL"
 KEYLESS_BAD_REQUEST = "KEYLESS_BAD_REQUEST"
 """Invalid arguments: unknown engine name, empty query, out-of-range value."""
 
+KEYLESS_BROWSER = "KEYLESS_BROWSER"
+"""A browser-rendered source failed: no browser, a crash, or a render timeout."""
+
 ERROR_CODES: tuple[str, ...] = (
     KEYLESS_NETWORK,
     KEYLESS_PARSE,
     KEYLESS_RATE_LIMITED,
     KEYLESS_BAD_URL,
     KEYLESS_BAD_REQUEST,
+    KEYLESS_BROWSER,
 )
 
 
@@ -118,15 +122,27 @@ class BadRequestError(KeylessWebError):
     code = KEYLESS_BAD_REQUEST
 
 
+class BrowserUnavailableError(KeylessWebError):
+    """A browser-rendered source could not be rendered."""
+
+    code = KEYLESS_BROWSER
+    hint = (
+        "Install Chrome or Edge, or point KEYLESS_WEB_BROWSER at an executable. "
+        "Engines that do not need a browser keep working."
+    )
+
+
 __all__ = [
     "ERROR_CODES",
     "KEYLESS_BAD_REQUEST",
     "KEYLESS_BAD_URL",
+    "KEYLESS_BROWSER",
     "KEYLESS_NETWORK",
     "KEYLESS_PARSE",
     "KEYLESS_RATE_LIMITED",
     "BadRequestError",
     "BadUrlError",
+    "BrowserUnavailableError",
     "KeylessWebError",
     "NetworkError",
     "ParseError",

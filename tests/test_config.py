@@ -41,15 +41,15 @@ def test_defaults_when_the_environment_is_empty() -> None:
     assert config.user_agent == DEFAULT_USER_AGENT
 
 
-def test_bing_is_opt_in_only() -> None:
-    """Bing needs cookies, so it must not be part of the default engine list."""
-    assert "bing" not in DEFAULT_ENGINES
-    assert DEFAULT_ENGINES == ("duckduckgo", "google", "wikipedia")
-    assert "bing" in ENGINE_NAMES
+def test_default_engine_order_leads_with_the_web_index() -> None:
+    """The rendered Google index is first; the cheap HTTP backends follow it."""
+    assert DEFAULT_ENGINES == ("google_web", "duckduckgo", "bing", "google")
+    assert "wikipedia" in ENGINE_NAMES
+    assert "wikipedia" not in DEFAULT_ENGINES
 
 
 def test_engine_names_are_the_public_enum() -> None:
-    assert ENGINE_NAMES == ("bing", "duckduckgo", "google", "wikipedia")
+    assert ENGINE_NAMES == ("bing", "duckduckgo", "google", "google_web", "wikipedia")
 
 
 def test_hard_caps() -> None:
