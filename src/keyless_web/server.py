@@ -27,7 +27,7 @@ from .engines import search as run_search
 from .errors import KeylessWebError
 from .fetch import fetch_page
 
-Engine = Literal["bing", "duckduckgo", "google", "google_web", "wikipedia"]
+Engine = Literal["bing", "duckduckgo", "firecrawl", "google", "google_web", "wikipedia"]
 
 INSTRUCTIONS = (
     "Keyless web access: web_search finds pages and news, web_fetch reads a page "
@@ -41,11 +41,13 @@ SEARCH_DESCRIPTION = (
     'plus optional "source" and "date" fields for news hits. Every requested '
     "engine runs concurrently and the hits are interleaved round-robin, so one "
     "answer can cite several independent sources; results are de-duplicated by "
-    'URL. engines: any of "google_web", "duckduckgo", "bing", "google", '
-    '"wikipedia"; omitted uses the server default (google_web, duckduckgo, bing, '
-    'google). "google_web" is the real Google web index rendered in a headless '
-    'browser (needs Chrome or Edge installed), "google" is Google News RSS (news '
-    'and tech coverage, no general web index), and "wikipedia" is the '
+    'URL. engines: any of "google_web", "firecrawl", "duckduckgo", "bing", '
+    '"google", "wikipedia"; omitted uses the server default (google_web, '
+    'duckduckgo, bing, google). "google_web" is the real Google web index '
+    "rendered in a headless browser (needs Chrome or Edge installed), "
+    '"firecrawl" is a JSON search API that needs no key but is rate limited '
+    'per client address, "google" is Google News RSS (news and tech coverage, '
+    'no general web index), and "wikipedia" is the '
     "encyclopedia. max_results must be 1-20. Always valid JSON: an empty array [] "
     "means no engine produced results (retry with different terms or another "
     "engine); on failure it returns a text starting with 'error[KEYLESS_...]:' "

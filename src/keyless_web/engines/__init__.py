@@ -21,7 +21,7 @@ from ..config import MAX_SEARCH_RESULTS, Settings
 from ..config import settings as current_settings
 from ..errors import BadRequestError, KeylessWebError
 from ..net.transport import AllBackendsFailed, run_with_fallback, to_keyless_error
-from . import bing, duckduckgo, google_news, google_web, wikipedia
+from . import bing, duckduckgo, firecrawl, google_news, google_web, wikipedia
 from .base import Engine, SearchResult, clean_snippet
 
 SearchFn = Callable[..., list[SearchResult]]
@@ -31,6 +31,7 @@ SearchFn = Callable[..., list[SearchResult]]
 ENGINES: dict[str, SearchFn] = {
     "bing": bing.search,
     "duckduckgo": duckduckgo.search,
+    "firecrawl": firecrawl.search,
     "google": google_news.search,
     "google_web": google_web.search,
     "wikipedia": wikipedia.search,

@@ -31,3 +31,14 @@
         providerId: keyless
         maxResults: 10
         maxChars: 20000
+        # Engine set for the DSH integration. It deliberately leaves out the two
+        # scraped HTML backends: on a network that treats a scripted client as a
+        # bot, `www.bing.com/search` answers with a decoy SERP whose hits belong
+        # to *other* queries (while the page title echoes the requested one), and
+        # DuckDuckGo's endpoints answer HTTP 202 with an "anomaly" page. Both hand
+        # the model plausible-looking noise, which is worse than no result at all
+        # and cannot be caught downstream. `firecrawl` fills that slot: a JSON
+        # API that needs no key and reports only its own results.
+        # Set KEYLESS_WEB_ENGINES yourself to re-enable bing or duckduckgo.
+        env:
+          KEYLESS_WEB_ENGINES: 'google_web,firecrawl,google'

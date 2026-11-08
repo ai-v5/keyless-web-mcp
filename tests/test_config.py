@@ -49,7 +49,14 @@ def test_default_engine_order_leads_with_the_web_index() -> None:
 
 
 def test_engine_names_are_the_public_enum() -> None:
-    assert ENGINE_NAMES == ("bing", "duckduckgo", "google", "google_web", "wikipedia")
+    assert ENGINE_NAMES == (
+        "bing",
+        "duckduckgo",
+        "firecrawl",
+        "google",
+        "google_web",
+        "wikipedia",
+    )
 
 
 def test_hard_caps() -> None:

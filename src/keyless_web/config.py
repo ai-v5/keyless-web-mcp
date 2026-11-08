@@ -52,7 +52,14 @@ BROWSER_TIMEOUT_ENV = "KEYLESS_WEB_BROWSER_TIMEOUT"
 BROWSER_WAIT_ENV = "KEYLESS_WEB_BROWSER_WAIT"
 
 #: Engine names accepted by the ``engines`` tool argument.
-ENGINE_NAMES: tuple[str, ...] = ("bing", "duckduckgo", "google", "google_web", "wikipedia")
+ENGINE_NAMES: tuple[str, ...] = (
+    "bing",
+    "duckduckgo",
+    "firecrawl",
+    "google",
+    "google_web",
+    "wikipedia",
+)
 
 #: Engine order used when the caller does not pass ``engines``.
 #:
