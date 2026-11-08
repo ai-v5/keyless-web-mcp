@@ -43,9 +43,15 @@ def test_defaults_when_the_environment_is_empty() -> None:
 
 def test_default_engine_order_leads_with_the_web_index() -> None:
     """The rendered Google index is first; the cheap HTTP backends follow it."""
-    assert DEFAULT_ENGINES == ("google_web", "duckduckgo", "bing", "google")
+    assert DEFAULT_ENGINES == ("google_web", "firecrawl", "duckduckgo", "google")
     assert "wikipedia" in ENGINE_NAMES
     assert "wikipedia" not in DEFAULT_ENGINES
+
+
+def test_bing_is_selectable_but_not_a_default() -> None:
+    """Bing answers a scripted client with another query's results; never opt-in by default."""
+    assert "bing" in ENGINE_NAMES
+    assert "bing" not in DEFAULT_ENGINES
 
 
 def test_engine_names_are_the_public_enum() -> None:

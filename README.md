@@ -7,7 +7,7 @@ gives an agent two tools:
 
 | Tool | What it does |
 |---|---|
-| `web_search` | Queries several keyless backends in parallel (Google, DuckDuckGo, Bing and Google News by default), interleaves the hits and returns JSON |
+| `web_search` | Queries several keyless backends in parallel (Google, Firecrawl, DuckDuckGo and Google News by default), interleaves the hits and returns JSON |
 | `web_fetch` | Fetches one URL and returns its readable main text (or pretty-printed JSON) |
 
 Both run over stdio, start in well under a second, and work the moment the process starts. There is
@@ -151,13 +151,13 @@ Hint: Pass an absolute http:// or https:// URL, for example https://docs.python.
 | Engine | Endpoint | Default | Notes |
 |---|---|---|---|
 | `google_web` | `www.google.com/search` | ✅ first | **The real Google web index**, rendered in a headless Chrome/Edge. A plain HTTP client only receives a JavaScript shell, and the stock `HeadlessChrome` agent earns an "unusual traffic" page; a desktop agent returns normal results. Result URLs are recovered from Google's `/goto` redirector (the `302` it answers, with the `<cite>` breadcrumb as fallback). Costs roughly 4–8 s per search and needs a browser |
-| `duckduckgo` | `html.duckduckgo.com/html/` | ✅ second | No-JS HTML endpoint, no key and no cookie; redirect links are unwrapped from `uddg=` |
-| `bing` | `www.bing.com/search` | ✅ third | Organic results over plain HTTP; click-tracker links (`/ck/a?...&u=a1<base64url>`) are decoded back to the real URL, and the market (`mkt`/`setlang`) follows the query script so a Chinese query does not come back as English football scores |
+| `firecrawl` | `api.firecrawl.dev/v2/search` | ✅ second | A JSON search API rather than a scraped SERP: no key and no account, but rate limited per client address. Snippets are page excerpts, cut at 4000 characters; a 5xx or an empty `200` body is retried twice before it counts as a failure |
+| `duckduckgo` | `html.duckduckgo.com/html/` | ✅ third | No-JS HTML endpoint, no key and no cookie; redirect links are unwrapped from `uddg=` |
 | `google` | `news.google.com/rss/search` | ✅ fourth | **Google News RSS, not the web index**: news and tech coverage. Item URLs are Google News article links, which open in a browser but do not return article text to `web_fetch` |
+| `bing` | `www.bing.com/search` | ❌ opt-in | Organic results over plain HTTP; click-tracker links (`/ck/a?...&u=a1<base64url>`) are decoded back to the real URL, and the market (`mkt`/`setlang`) follows the query script. Not a default: from a network that treats scripted clients as bots, `www.bing.com/search` answers with a **decoy SERP** whose hits belong to other queries while the title echoes the requested one, and that noise cannot be told apart downstream. Select it by name if your network gets real results |
 | `wikipedia` | `*.wikipedia.org/w/api.php` | ❌ opt-in | Encyclopedic baseline; stable public API. Sends its own descriptive User-Agent, because Wikimedia answers HTTP 403 to browser-impersonating clients |
-| `firecrawl` | `api.firecrawl.dev/v2/search` | ❌ opt-in | A JSON search API rather than a scraped SERP: no key and no account, but rate limited per client address. Useful when the HTML endpoints answer a scripted client with something other than its own results. Snippets are page excerpts, cut at 4000 characters; a 5xx or an empty `200` body is retried twice before it counts as a failure |
 
-Default order: `google_web`, `duckduckgo`, `bing`, `google`. Every engine runs concurrently and the
+Default order: `google_web`, `firecrawl`, `duckduckgo`, `google`. Every engine runs concurrently and the
 hits are interleaved round-robin, so one answer can cite several independent sources without any
 backend disappearing behind a longer list. A single engine failing never fails the call; if every
 engine fails or finds nothing, `web_search` returns `[]`.
@@ -169,7 +169,7 @@ Everything is read from the environment, once, at start-up.
 | Variable | Default | Meaning |
 |---|---|---|
 | `MCP_WEB_PROXY` | *(unset)* | Fallback proxy, `host:port` or `http://host:port`. Direct is always tried first |
-| `KEYLESS_WEB_ENGINES` | `google_web,duckduckgo,bing,google` | Default engine list (comma separated, unknown names dropped) |
+| `KEYLESS_WEB_ENGINES` | `google_web,firecrawl,duckduckgo,google` | Default engine list (comma separated, unknown names dropped) |
 | `KEYLESS_WEB_MIN_INTERVAL` | `1.0` | Minimum seconds between two requests to the same host; `0` disables |
 | `KEYLESS_WEB_CACHE_TTL` | `300` | Search result cache TTL in seconds; `0` disables |
 | `KEYLESS_WEB_CACHE_TTL_FETCH` | `900` | Fetched page cache TTL in seconds; `0` disables |

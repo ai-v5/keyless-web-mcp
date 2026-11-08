@@ -105,20 +105,20 @@ Hint: Pass an absolute http:// or https:// URL, for example https://docs.python.
 | 引擎 | 端点 | 默认 | 说明 |
 |---|---|---|---|
 | `google_web` | `www.google.com/search` | ✅ 第一 | **真正的 Google 网页索引**，用无头 Chrome/Edge 渲染。纯 HTTP 客户端只能拿到 JS 外壳，而自带 `HeadlessChrome` UA 会吃到「unusual traffic」拦截页；换成桌面 UA 就正常。结果 URL 从 Google 的 `/goto` 跳转恢复（读它的 `302`，拿不到时用 `<cite>` 面包屑兜底）。每次约 4–8 秒，且需要本机有浏览器 |
-| `duckduckgo` | `html.duckduckgo.com/html/` | ✅ 第二 | 无 JS 的 HTML 端点，免 key 免 cookie；跳转链接会解 `uddg=` |
-| `bing` | `www.bing.com/search` | ✅ 第三 | 纯 HTTP 就能拿自然结果；点击包装链接（`/ck/a?...&u=a1<base64url>`）会解码回真实 URL，市场参数（`mkt`/`setlang`）跟随查询语言，中文查询不会变成英文足球比分 |
+| `firecrawl` | `api.firecrawl.dev/v2/search` | ✅ 第二 | 不抓 SERP，直接调 JSON 搜索接口：免 key 免注册，但按客户端 IP 限流；`snippet` 是页面摘录，截断到 4000 字符；遇到 5xx 或空 `200` body 会重试两次再判失败 |
+| `duckduckgo` | `html.duckduckgo.com/html/` | ✅ 第三 | 无 JS 的 HTML 端点，免 key 免 cookie；跳转链接会解 `uddg=` |
 | `google` | `news.google.com/rss/search` | ✅ 第四 | **是 Google News RSS，不是网页索引**，偏向新闻/技术报道；条目 URL 是 Google 新闻跳转链接，浏览器能打开，但 `web_fetch` 抓不到正文 |
+| `bing` | `www.bing.com/search` | ❌ 需显式指定 | 纯 HTTP 抓自然结果；点击包装链接（`/ck/a?...&u=a1<base64url>`）会解码回真实 URL，市场参数跟随查询语言。**不作为默认**：在把脚本客户端当 bot 的网络里，`www.bing.com/search` 会返回**诱饵 SERP**——标题回显你的查询，结果却属于别的查询，而且下游无法分辨。你的网络能拿到真结果的话，可以按名字显式选它 |
 | `wikipedia` | `*.wikipedia.org/w/api.php` | ❌ 需显式指定 | 百科类兜底，公共 API 稳定；**自带**描述性 User-Agent，因为 Wikimedia 对伪装浏览器的客户端直接返回 403 |
-| `firecrawl` | `api.firecrawl.dev/v2/search` | ❌ 需显式指定 | 不抓 SERP，直接调 JSON 搜索接口：免 key 免注册，但按客户端 IP 限流。适合 HTML 端点对脚本客户端不给自己结果的网络环境；`snippet` 是页面摘录，截断到 4000 字符；遇到 5xx 或空 `200` body 会重试两次再判失败 |
 
-默认顺序：`google_web` → `duckduckgo` → `bing` → `google`。单个引擎失败不影响整体，其余引擎结果照常返回；全部失败或全部无结果时返回 `[]`。
+默认顺序：`google_web` → `firecrawl` → `duckduckgo` → `google`。单个引擎失败不影响整体，其余引擎结果照常返回；全部失败或全部无结果时返回 `[]`。
 
 ## 配置项（环境变量）
 
 | 变量 | 默认 | 含义 |
 |---|---|---|
 | `MCP_WEB_PROXY` | 未设置 | 兜底代理，`host:port` 或 `http://host:port`；始终先直连 |
-| `KEYLESS_WEB_ENGINES` | `google_web,duckduckgo,bing,google` | 默认引擎列表（逗号分隔，未知名字丢弃） |
+| `KEYLESS_WEB_ENGINES` | `google_web,firecrawl,duckduckgo,google` | 默认引擎列表（逗号分隔，未知名字丢弃） |
 | `KEYLESS_WEB_MIN_INTERVAL` | `1.0` | 同一 host 两次请求的最小间隔（秒），`0` 关闭 |
 | `KEYLESS_WEB_CACHE_TTL` | `300` | 搜索结果缓存 TTL（秒），`0` 关闭 |
 | `KEYLESS_WEB_CACHE_TTL_FETCH` | `900` | 抓取页面缓存 TTL（秒），`0` 关闭 |

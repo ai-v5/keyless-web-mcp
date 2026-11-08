@@ -43,7 +43,7 @@ SEARCH_DESCRIPTION = (
     "answer can cite several independent sources; results are de-duplicated by "
     'URL. engines: any of "google_web", "firecrawl", "duckduckgo", "bing", '
     '"google", "wikipedia"; omitted uses the server default (google_web, '
-    'duckduckgo, bing, google). "google_web" is the real Google web index '
+    'firecrawl, duckduckgo, google). "google_web" is the real Google web index '
     "rendered in a headless browser (needs Chrome or Edge installed), "
     '"firecrawl" is a JSON search API that needs no key but is rate limited '
     'per client address, "google" is Google News RSS (news and tech coverage, '
