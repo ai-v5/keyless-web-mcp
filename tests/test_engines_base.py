@@ -19,6 +19,7 @@ from keyless_web.engines import (
     duckduckgo,
     get_engine,
     google_news,
+    google_web,
     search,
     wikipedia,
 )
@@ -104,12 +105,19 @@ def test_clean_snippet(raw: str | None, expected: str) -> None:
 
 def test_available_engines_matches_the_public_contract() -> None:
     assert available_engines() == ENGINE_NAMES
-    assert set(available_engines()) == {"bing", "duckduckgo", "google", "wikipedia"}
+    assert set(available_engines()) == {
+        "bing",
+        "duckduckgo",
+        "google",
+        "google_web",
+        "wikipedia",
+    }
 
 
 def test_registry_maps_names_to_the_engine_functions() -> None:
     assert get_engine("duckduckgo") is duckduckgo.search
     assert get_engine("google") is google_news.search
+    assert get_engine("google_web") is google_web.search
     assert get_engine("wikipedia") is wikipedia.search
     assert get_engine("bing") is bing.search
 

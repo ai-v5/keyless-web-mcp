@@ -10,7 +10,8 @@ Supported variables
     Explicit proxy used as the fallback network backend, ``host:port`` or a full
     URL (``http://127.0.0.1:7890``). Direct connections are always tried first.
 ``KEYLESS_WEB_ENGINES``
-    Comma separated default engine list. Default: ``duckduckgo,google,wikipedia``.
+    Comma separated default engine list. Default:
+    ``google_web,duckduckgo,bing,google``.
 ``KEYLESS_WEB_MIN_INTERVAL``
     Minimum seconds between two requests to the same host. Default ``1.0``;
     ``0`` disables the rate limiter.
@@ -22,6 +23,14 @@ Supported variables
     User-Agent header sent with every request.
 ``KEYLESS_WEB_TIMEOUT``
     Per-request timeout in seconds. Default ``15``.
+``KEYLESS_WEB_BROWSER``
+    Browser executable used by browser-backed engines. Default: auto-detected
+    Chrome/Edge/Chromium; ``off`` disables the browser entirely.
+``KEYLESS_WEB_BROWSER_TIMEOUT``
+    Wall-clock budget for one rendered page, in seconds. Default ``25``.
+``KEYLESS_WEB_BROWSER_WAIT``
+    Virtual time budget handed to the browser, in milliseconds. Default ``6000``;
+    raise it on a slow link and lower it to spend less time per search.
 """
 
 from __future__ import annotations
@@ -38,23 +47,28 @@ CACHE_TTL_ENV = "KEYLESS_WEB_CACHE_TTL"
 FETCH_CACHE_TTL_ENV = "KEYLESS_WEB_CACHE_TTL_FETCH"
 USER_AGENT_ENV = "KEYLESS_WEB_USER_AGENT"
 TIMEOUT_ENV = "KEYLESS_WEB_TIMEOUT"
+BROWSER_ENV = "KEYLESS_WEB_BROWSER"
+BROWSER_TIMEOUT_ENV = "KEYLESS_WEB_BROWSER_TIMEOUT"
+BROWSER_WAIT_ENV = "KEYLESS_WEB_BROWSER_WAIT"
 
 #: Engine names accepted by the ``engines`` tool argument.
-ENGINE_NAMES: tuple[str, ...] = ("bing", "duckduckgo", "google", "wikipedia")
+ENGINE_NAMES: tuple[str, ...] = ("bing", "duckduckgo", "google", "google_web", "wikipedia")
 
 #: Engine order used when the caller does not pass ``engines``.
 #:
-#: ``bing`` is deliberately absent: Bing requires cookies to return organic
-#: results, and from a datacenter egress IP it tends to answer with spam. It
-#: stays available as an opt-in (``engines=["bing"]``).
-#: ``google`` maps to the Google News RSS endpoint, because ``google.com/search``
-#: only serves a JavaScript shell to non-browser clients.
-DEFAULT_ENGINES: tuple[str, ...] = ("duckduckgo", "google", "wikipedia")
+#: ``google_web`` renders ``google.com/search`` in a headless browser, so it is
+#: the only engine that reads the real web index; ``duckduckgo`` and ``bing`` are
+#: plain HTTP backends that work without a browser, and ``google`` is Google News
+#: RSS (see :mod:`keyless_web.engines.google_news`). Results from all of them are
+#: interleaved round-robin, so each backend contributes what it ranks highest.
+DEFAULT_ENGINES: tuple[str, ...] = ("google_web", "duckduckgo", "bing", "google")
 
 DEFAULT_TIMEOUT = 15.0
 DEFAULT_MIN_INTERVAL = 1.0
 DEFAULT_SEARCH_CACHE_TTL = 300.0
 DEFAULT_FETCH_CACHE_TTL = 900.0
+DEFAULT_BROWSER_TIMEOUT = 25.0
+DEFAULT_BROWSER_WAIT_MS = 6000
 DEFAULT_MAX_RESULTS = 10
 DEFAULT_MAX_CHARS = 20_000
 
@@ -130,6 +144,9 @@ class Settings:
     timeout: float = DEFAULT_TIMEOUT
     max_results: int = DEFAULT_MAX_RESULTS
     max_chars: int = DEFAULT_MAX_CHARS
+    browser: str | None = None
+    browser_timeout: float = DEFAULT_BROWSER_TIMEOUT
+    browser_wait_ms: int = DEFAULT_BROWSER_WAIT_MS
 
     @property
     def proxy_url(self) -> str | None:
@@ -154,6 +171,9 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         timeout=_env_float(source, TIMEOUT_ENV, DEFAULT_TIMEOUT),
         max_results=DEFAULT_MAX_RESULTS,
         max_chars=DEFAULT_MAX_CHARS,
+        browser=_get(source, BROWSER_ENV) or None,
+        browser_timeout=_env_float(source, BROWSER_TIMEOUT_ENV, DEFAULT_BROWSER_TIMEOUT),
+        browser_wait_ms=_env_int(source, BROWSER_WAIT_ENV, DEFAULT_BROWSER_WAIT_MS),
     )
 
 
@@ -170,7 +190,12 @@ def reload_settings() -> Settings:
 
 
 __all__ = [
+    "BROWSER_ENV",
+    "BROWSER_TIMEOUT_ENV",
+    "BROWSER_WAIT_ENV",
     "CACHE_TTL_ENV",
+    "DEFAULT_BROWSER_TIMEOUT",
+    "DEFAULT_BROWSER_WAIT_MS",
     "DEFAULT_ENGINES",
     "DEFAULT_FETCH_CACHE_TTL",
     "DEFAULT_MAX_CHARS",
