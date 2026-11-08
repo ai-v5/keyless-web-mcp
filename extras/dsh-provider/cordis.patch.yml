@@ -1,0 +1,33 @@
+# Bundle patch for dsh-plugin-keyless-web.
+#
+# This file ships *with the package*, so it is applied by the loader as soon as
+# the bundle is listed in a profile's `dsh.profile.bundles` — no hand-editing of
+# the profile's own cordis.patch.yml is involved (that file is owned by the app
+# and gets rewritten when settings change).
+#
+# It does three things, in order:
+#   1. points both web capabilities at the keyless providers,
+#   2. disables the keyed DeepSeek search plugin (nothing should call an
+#      endpoint that needs an API key this machine does not have),
+#   3. inserts the provider plugin itself.
+
+- id: web
+  name: '@deepseek-ai/dsh-web'
+  config:
+    searchProvider: keyless
+    fetchProvider: keyless
+
+- id: web-search-deepseek
+  name: '@deepseek-ai/dsh-web-search-deepseek'
+  disabled: true
+
+- insert:
+    - id: keyless-web-provider
+      name: 'dsh-plugin-keyless-web'
+      # The plugin auto-detects the `uv tool` interpreter, and reads these
+      # defaults when the profile does not override them. A machine that needs
+      # a proxy or a pinned interpreter overrides them here.
+      config:
+        providerId: keyless
+        maxResults: 10
+        maxChars: 20000

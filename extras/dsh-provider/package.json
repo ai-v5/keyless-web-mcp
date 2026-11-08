@@ -1,0 +1,42 @@
+{
+  "name": "dsh-plugin-keyless-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DeepSeek Harness web providers backed by keyless-web-mcp: keyless search and page reading.",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/ai-v5/keyless-web-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ai-v5/keyless-web-mcp.git",
+    "directory": "extras/dsh-provider"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "keyless-web-provider.mjs",
+    "cordis.patch.yml",
+    "example.cordis.patch.yml",
+    "selftest.mjs",
+    "README.md"
+  ],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "web-search",
+    "web-fetch",
+    "keyless"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

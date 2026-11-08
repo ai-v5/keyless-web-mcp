@@ -36,16 +36,22 @@ tool call.
 uv tool install git+https://github.com/ai-v5/keyless-web-mcp
 ```
 
-Then copy `example.cordis.patch.yml` into your profile and replace
-`<ABSOLUTE PATH TO keyless-web-provider.mjs>` with the path to this directory's
-`keyless-web-provider.mjs`:
+Then install this directory as a **profile bundle** — the package ships its own
+`cordis.patch.yml`, so the loader applies the provider selection, disables the
+keyed DeepSeek search plugin and inserts the provider, all at once:
 
 ```bash
-# merge the entries into the profile patch that the app reads
-notepad "$env:USERPROFILE\.dsh\profiles\desktop\cordis.patch.yml"   # Windows
+dsh plugin --profile <profile> add link:<checkout>/extras/dsh-provider
 ```
 
-Selecting a provider is the `web` row's job; the plugin only registers the id:
+That is the durable route: `dsh plugin add` records the dependency and appends
+the package to `dsh.profile.bundles` in the profile's `package.json`, which the
+app does not rewrite when settings change. (Hand-editing the profile's
+`cordis.patch.yml` also works — see `example.cordis.patch.yml` — but that file
+belongs to the app and is rewritten when you change settings in the UI.)
+
+Selecting a provider is the `web` row's job; the plugin only registers the id.
+The bundle already sets both:
 
 ```yaml
 - id: web
