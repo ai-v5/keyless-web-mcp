@@ -9,11 +9,18 @@ Two stages, deliberately separate:
 ``fetch_page``
     Network stage: transport fallback, error translation, caching, then
     :func:`extract_page`.
+
+``fetch_document``
+    The same network stage, but it reports the usable HTTP status instead of
+    raising for a non-2xx answer. A host that presents a status code to its user
+    (an editor, a browser tool, a harness fetch provider) cannot get that from
+    :func:`fetch_page`, which turns every 4xx/5xx into a ``KEYLESS_*`` error.
 """
 
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -84,15 +91,35 @@ def extract_page(
 
 def parse_json_payload(response: httpx.Response, max_chars: int = DEFAULT_MAX_CHARS) -> str:
     """Pretty-print a JSON response, falling back to raw text."""
+    return _truncate(_json_text(response), max_chars)
+
+
+def _json_text(response: httpx.Response) -> str:
+    """Pretty-print a JSON response body, or return its raw text when it is not JSON."""
     try:
         payload = response.json()
     except ValueError:
-        return _truncate(response.text.strip(), max_chars)
+        return response.text.strip()
     try:
-        text = json.dumps(payload, ensure_ascii=False, indent=1)
+        return json.dumps(payload, ensure_ascii=False, indent=1)
     except (TypeError, ValueError):
-        text = response.text
-    return _truncate(text, max_chars)
+        return response.text
+
+
+@dataclass(frozen=True, slots=True)
+class FetchedDocument:
+    """One retrieval: where it ended up, what it answered, and what it says.
+
+    ``status_code`` is the real HTTP status, so a caller that shows it to a user
+    can tell a 404 apart from a 200. ``text`` is the readable form (the same
+    extraction :func:`fetch_page` returns). ``truncated`` reports whether
+    ``max_chars`` cut the text.
+    """
+
+    url: str
+    status_code: int
+    text: str
+    truncated: bool
 
 
 def fetch_page(
@@ -111,6 +138,43 @@ def fetch_page(
         RateLimitedError: the host answered 429 or refuses scripted access.
         ParseError: the response could not be turned into text.
     """
+    return fetch_document(
+        url,
+        max_chars=max_chars,
+        include_links=include_links,
+        settings=settings,
+        transport=transport,
+    ).text
+
+
+def fetch_document(
+    url: str,
+    *,
+    max_chars: int = DEFAULT_MAX_CHARS,
+    include_links: bool = False,
+    allow_error_status: bool = False,
+    settings: Settings | None = None,
+    transport: httpx.BaseTransport | None = None,
+) -> FetchedDocument:
+    """Fetch ``url`` and return the status, readable text and truncation flag.
+
+    Args:
+        url: absolute http(s) URL.
+        max_chars: truncate the rendered text to this many characters.
+        include_links: prepend up to 30 absolute links found in the document.
+        allow_error_status: return a 4xx/5xx answer as a document instead of
+            raising the matching :class:`~keyless_web.errors.KeylessWebError`.
+            Transport failures still raise: there is no status to report.
+        settings: configuration snapshot; defaults to the process settings.
+        transport: optional transport override, for tests.
+
+    Raises:
+        BadUrlError: ``url`` is not an absolute http(s) URL.
+        NetworkError: no backend reached the host.
+        RateLimitedError: the host answered 429 or refuses scripted access
+            (only with ``allow_error_status=False``).
+        ParseError: the response could not be turned into text.
+    """
     target = (url or "").strip()
     if not is_http_url(target):
         raise BadUrlError(
@@ -120,38 +184,56 @@ def fetch_page(
     key = _cache.cache_key("fetch", target, max_chars, include_links)
     store = _cache.get_fetch_cache()
     cached = store.get(key) if config.fetch_cache_ttl > 0 else None
-    if isinstance(cached, str):
+    if isinstance(cached, FetchedDocument):
         return cached
 
     try:
-        response = request_with_fallback("GET", target, settings=config, transport=transport)
-        text = _render(response, max_chars=max_chars, include_links=include_links)
+        response = request_with_fallback(
+            "GET",
+            target,
+            settings=config,
+            transport=transport,
+            raise_for_status=not allow_error_status,
+        )
+        document = _document(response, max_chars=max_chars, include_links=include_links)
     except KeylessWebError:
         raise
     except Exception as exc:
         raise to_keyless_error(exc) from exc
 
-    if config.fetch_cache_ttl > 0 and text:
-        store.set(key, text, config.fetch_cache_ttl)
-    return text
+    if config.fetch_cache_ttl > 0 and document.text and document.status_code < 400:
+        store.set(key, document, config.fetch_cache_ttl)
+    return document
 
 
-def _render(response: httpx.Response, *, max_chars: int, include_links: bool) -> str:
+def _document(response: httpx.Response, *, max_chars: int, include_links: bool) -> FetchedDocument:
+    """Render one response into a :class:`FetchedDocument`."""
+    full = _compose(response, include_links=include_links)
+    return FetchedDocument(
+        url=str(response.url),
+        status_code=response.status_code,
+        text=_truncate(full, max_chars),
+        truncated=max_chars > 0 and len(full) > max_chars,
+    )
+
+
+def _compose(response: httpx.Response, *, include_links: bool) -> str:
+    """Render the complete readable text of one response, before any truncation."""
     content_type = response.headers.get("content-type", "").lower()
     if "json" in content_type:
-        return parse_json_payload(response, max_chars)
+        return _json_text(response)
     head = response.text[:512].lower()
     if "html" in content_type or "<html" in head or "<!doctype html" in head:
         try:
             return extract_page(
                 response.text,
                 str(response.url),
-                max_chars=max_chars,
+                max_chars=0,
                 include_links=include_links,
             )
         except Exception as exc:
             raise ParseError(f"could not extract text from {response.url}", cause=exc) from exc
-    return _truncate(response.text.strip(), max_chars)
+    return response.text.strip()
 
 
 def _extract_links(soup: BeautifulSoup, base_url: str, limit: int = _MAX_LINKS) -> list[str]:
@@ -181,4 +263,11 @@ def _truncate(text: str, max_chars: int) -> str:
     return text
 
 
-__all__ = ["extract_page", "fetch_page", "is_http_url", "parse_json_payload"]
+__all__ = [
+    "FetchedDocument",
+    "extract_page",
+    "fetch_document",
+    "fetch_page",
+    "is_http_url",
+    "parse_json_payload",
+]

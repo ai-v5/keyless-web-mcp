@@ -150,6 +150,7 @@ def test_source_tree_layout_is_what_the_package_expects() -> None:
         "cache.py",
         "errors.py",
         "server.py",
+        "worker.py",
         "engines/base.py",
         "engines/__init__.py",
         "net/transport.py",

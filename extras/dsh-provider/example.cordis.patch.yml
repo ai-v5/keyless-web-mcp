@@ -1,0 +1,39 @@
+# Example DSH overlay: replace the built-in web search and fetch providers with
+# the keyless ones from this package.
+#
+# Merge these entries into your own `~/.dsh/profiles/<profile>/cordis.patch.yml`,
+# or pass this file as an overlay (`dsh --profile <profile> --patch <this file>`).
+#
+# Before using it:
+#   1. Install the package so an interpreter carries `keyless_web.worker`:
+#        uv tool install git+https://github.com/ai-v5/keyless-web-mcp
+#   2. Replace <ABSOLUTE PATH TO keyless-web-provider.mjs> below. The file ships
+#      in this directory of the repository you cloned.
+#   3. The `python` key is optional: the plugin auto-detects the `uv tool` venv.
+#      Set it only when the package lives somewhere unusual.
+
+# Point both web capabilities at the keyless providers.
+- id: web
+  name: '@deepseek-ai/dsh-web'
+  config:
+    searchProvider: keyless
+    fetchProvider: keyless
+
+# Disable the keyed DeepSeek search plugin, so nothing calls an endpoint that
+# needs an API key this machine does not have.
+- id: web-search-deepseek
+  name: '@deepseek-ai/dsh-web-search-deepseek'
+  disabled: true
+
+- insert:
+    # Registers the "keyless" search and fetch providers and owns one long-lived
+    # worker process (`python -m keyless_web.worker`) behind them.
+    - id: keyless-web-provider
+      name: '<ABSOLUTE PATH TO keyless-web-provider.mjs>'
+      config:
+        providerId: keyless
+        # python: 'C:\path\to\uv\tools\keyless-web-mcp\Scripts\python.exe'
+        maxResults: 10
+        maxChars: 20000
+        # env:
+        #   MCP_WEB_PROXY: http://127.0.0.1:7890

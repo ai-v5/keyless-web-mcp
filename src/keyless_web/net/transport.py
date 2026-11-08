@@ -238,17 +238,32 @@ def request_with_fallback(
     settings: Settings | None = None,
     transport: httpx.BaseTransport | None = None,
     timeout: float | None = None,
+    raise_for_status: bool = True,
 ) -> httpx.Response:
-    """Perform one request with backend fallback, returning a 2xx response.
+    """Perform one request with backend fallback, returning the response.
+
+    Args:
+        method: HTTP method.
+        url: absolute URL.
+        params: query parameters.
+        headers: extra request headers.
+        settings: configuration snapshot; defaults to the process settings.
+        transport: optional transport override, for tests.
+        timeout: per-request timeout override.
+        raise_for_status: turn a 4xx/5xx answer into :class:`httpx.HTTPStatusError`
+            (the default). Pass ``False`` when the caller reports the status
+            itself instead of failing on it.
 
     Raises:
         AllBackendsFailed: no backend could deliver a response.
-        httpx.HTTPStatusError: a backend delivered a 4xx/5xx response.
+        httpx.HTTPStatusError: a backend delivered a 4xx/5xx response and
+            ``raise_for_status`` is true.
     """
 
     def _call(client: httpx.Client) -> httpx.Response:
         response = client.request(method, url, params=params, headers=headers)
-        response.raise_for_status()
+        if raise_for_status:
+            response.raise_for_status()
         return response
 
     return run_with_fallback(_call, settings=settings, transport=transport, timeout=timeout)

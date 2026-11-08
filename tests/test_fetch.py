@@ -14,7 +14,7 @@ from keyless_web.errors import (
     NetworkError,
     RateLimitedError,
 )
-from keyless_web.fetch import fetch_page
+from keyless_web.fetch import fetch_document, fetch_page
 from keyless_web.fetch.extract import extract_page, is_http_url
 from support import html_responder, json_responder, load_fixture
 
@@ -249,3 +249,84 @@ def test_connection_failure_becomes_a_network_error() -> None:
 
     assert excinfo.value.code == KEYLESS_NETWORK
     assert "ConnectError" in excinfo.value.message
+
+
+# --------------------------------------------------------------------------- documents
+
+
+def test_document_reports_the_status_the_text_and_the_truncation() -> None:
+    document = fetch_document(
+        PAGE_URL,
+        settings=_settings(),
+        transport=httpx.MockTransport(html_responder(ARTICLE)),
+    )
+
+    assert document.url == PAGE_URL
+    assert document.status_code == 200
+    assert "缓存击穿" in document.text
+    assert document.truncated is False
+
+
+def test_document_flags_truncation() -> None:
+    document = fetch_document(
+        PAGE_URL,
+        max_chars=120,
+        settings=_settings(),
+        transport=httpx.MockTransport(html_responder(ARTICLE)),
+    )
+
+    assert document.truncated is True
+    assert document.text.endswith("[truncated at 120 chars]")
+
+
+@pytest.mark.parametrize("status", [404, 429, 500])
+def test_document_returns_an_error_status_instead_of_raising(status: int) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status, text="<html><body>nope</body></html>", request=request)
+
+    document = fetch_document(
+        PAGE_URL,
+        allow_error_status=True,
+        settings=_settings(),
+        transport=httpx.MockTransport(handler),
+    )
+
+    assert document.status_code == status
+    assert "nope" in document.text
+
+
+def test_document_never_caches_an_error_status() -> None:
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        return httpx.Response(404, text="missing", request=request)
+
+    transport = httpx.MockTransport(handler)
+    first = fetch_document(
+        PAGE_URL, allow_error_status=True, settings=_settings(), transport=transport
+    )
+    second = fetch_document(
+        PAGE_URL, allow_error_status=True, settings=_settings(), transport=transport
+    )
+
+    assert calls["count"] == 2
+    assert (first.status_code, second.status_code) == (404, 404)
+
+
+def test_document_still_raises_when_the_host_is_unreachable() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused")
+
+    with pytest.raises(NetworkError):
+        fetch_document(
+            PAGE_URL,
+            allow_error_status=True,
+            settings=_settings(),
+            transport=httpx.MockTransport(handler),
+        )
+
+
+def test_document_rejects_a_non_http_url() -> None:
+    with pytest.raises(BadUrlError):
+        fetch_document("file:///C:/Windows/win.ini", settings=_settings())
