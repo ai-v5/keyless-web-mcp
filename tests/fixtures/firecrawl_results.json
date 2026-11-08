@@ -1,0 +1,34 @@
+{
+  "success": true,
+  "data": {
+    "web": [
+      {
+        "url": "https://github.com/NVIDIA/nccl",
+        "title": "GitHub - NVIDIA/nccl: Optimized primitives for collective multi-GPU communication",
+        "description": "NCCL (pronounced \"Nickel\") is a stand-alone library of standard communication routines for GPUs, implementing all-reduce, all-gather, reduce, broadcast, reduce-scatter, and send and receive.",
+        "position": 1,
+        "metadata": {
+          "title": "GitHub - NVIDIA/nccl",
+          "sourceURL": "https://github.com/NVIDIA/nccl",
+          "statusCode": 200
+        }
+      },
+      {
+        "url": "https://developer.nvidia.com/nccl",
+        "title": "NVIDIA Collective Communications Library (NCCL)",
+        "description": "NCCL implements multi-GPU and multi-node communication primitives optimized for NVIDIA GPUs and networking.\nTopologies are discovered automatically.",
+        "position": 2,
+        "metadata": {
+          "title": "NVIDIA Collective Communications Library (NCCL)",
+          "statusCode": 200
+        }
+      },
+      {
+        "url": "",
+        "title": "A hit without a URL is unusable",
+        "description": "Dropped by the parser.",
+        "position": 3
+      }
+    ]
+  }
+}

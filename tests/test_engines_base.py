@@ -17,6 +17,7 @@ from keyless_web.engines import (
     available_engines,
     bing,
     duckduckgo,
+    firecrawl,
     get_engine,
     google_news,
     google_web,
@@ -108,6 +109,7 @@ def test_available_engines_matches_the_public_contract() -> None:
     assert set(available_engines()) == {
         "bing",
         "duckduckgo",
+        "firecrawl",
         "google",
         "google_web",
         "wikipedia",
@@ -116,6 +118,7 @@ def test_available_engines_matches_the_public_contract() -> None:
 
 def test_registry_maps_names_to_the_engine_functions() -> None:
     assert get_engine("duckduckgo") is duckduckgo.search
+    assert get_engine("firecrawl") is firecrawl.search
     assert get_engine("google") is google_news.search
     assert get_engine("google_web") is google_web.search
     assert get_engine("wikipedia") is wikipedia.search

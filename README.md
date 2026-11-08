@@ -7,7 +7,7 @@ gives an agent two tools:
 
 | Tool | What it does |
 |---|---|
-| `web_search` | Queries Google, DuckDuckGo, Bing and Google News in parallel, interleaves the hits and returns JSON |
+| `web_search` | Queries several keyless backends in parallel (Google, DuckDuckGo, Bing and Google News by default), interleaves the hits and returns JSON |
 | `web_fetch` | Fetches one URL and returns its readable main text (or pretty-printed JSON) |
 
 Both run over stdio, start in well under a second, and work the moment the process starts. There is
@@ -102,7 +102,7 @@ keyless-web-mcp` or `python -m keyless_web` as the server command.
 |---|---|---|---|
 | `query` | `string` | required | Search terms |
 | `max_results` | `integer` | `10` | 1–20 |
-| `engines` | `string[]` | configured default | Any of `bing`, `duckduckgo`, `google`, `wikipedia` |
+| `engines` | `string[]` | configured default | Any of `bing`, `duckduckgo`, `firecrawl`, `google`, `google_web`, `wikipedia` |
 
 Returns a JSON array (a string with `[]` when nothing matched):
 
@@ -155,6 +155,7 @@ Hint: Pass an absolute http:// or https:// URL, for example https://docs.python.
 | `bing` | `www.bing.com/search` | ✅ third | Organic results over plain HTTP; click-tracker links (`/ck/a?...&u=a1<base64url>`) are decoded back to the real URL, and the market (`mkt`/`setlang`) follows the query script so a Chinese query does not come back as English football scores |
 | `google` | `news.google.com/rss/search` | ✅ fourth | **Google News RSS, not the web index**: news and tech coverage. Item URLs are Google News article links, which open in a browser but do not return article text to `web_fetch` |
 | `wikipedia` | `*.wikipedia.org/w/api.php` | ❌ opt-in | Encyclopedic baseline; stable public API. Sends its own descriptive User-Agent, because Wikimedia answers HTTP 403 to browser-impersonating clients |
+| `firecrawl` | `api.firecrawl.dev/v2/search` | ❌ opt-in | A JSON search API rather than a scraped SERP: no key and no account, but rate limited per client address. Useful when the HTML endpoints answer a scripted client with something other than its own results. Snippets are page excerpts, cut at 4000 characters; a 5xx or an empty `200` body is retried twice before it counts as a failure |
 
 Default order: `google_web`, `duckduckgo`, `bing`, `google`. Every engine runs concurrently and the
 hits are interleaved round-robin, so one answer can cite several independent sources without any
@@ -244,7 +245,12 @@ sites it reads. By using it you agree to:
 Scraping HTML endpoints is inherently unstable: an upstream markup change can break an engine
 without notice. **No availability or correctness guarantee is offered.** Engines may stop working,
 be blocked from your network, or return degraded results; that is a property of the endpoints, not a
-bug report target. MIT licensed, provided "as is".
+bug report target. Two of those degradations look exactly like success, so they are worth naming:
+DuckDuckGo's HTML endpoints answer HTTP 202 with an "anomaly" page (no results, no error), and Bing
+answers a scripted client with a decoy SERP whose hits belong to *other* queries while the page title
+still echoes the requested one. Prefer a backend that reports its own results (`google_web`, or the
+`firecrawl` JSON API), and treat a result set you cannot match to your query as untrustworthy.
+MIT licensed, provided "as is".
 
 ## Development
 
@@ -272,7 +278,7 @@ src/keyless_web/
 ├── net/transport.py     # direct -> proxy fallback, rate limiting, truststore
 ├── engines/             # one module per engine, each just (client, query, n)
 │   ├── base.py          # SearchResult (pydantic) + Engine protocol
-│   ├── duckduckgo.py  bing.py  google_news.py  wikipedia.py
+│   ├── duckduckgo.py  bing.py  google_news.py  wikipedia.py  firecrawl.py
 │   ├── google_web.py    # parses the rendered Google page, recovers /goto URLs
 │   └── __init__.py      # ENGINES registry + parallel run + round-robin merge
 ├── fetch/extract.py     # trafilatura/BeautifulSoup extraction, JSON passthrough

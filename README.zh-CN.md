@@ -79,7 +79,7 @@ Windows 下若客户端不解析 `PATH` 里的 `uvx`，把 `command` 改成 `uv.
 |---|---|---|---|
 | `query` | string | 必填 | 查询词 |
 | `max_results` | int | 10 | 1–20 |
-| `engines` | string[] | 配置的默认列表 | 取值：`google_web` / `duckduckgo` / `bing` / `google` / `wikipedia` |
+| `engines` | string[] | 配置的默认列表 | 取值：`google_web` / `firecrawl` / `duckduckgo` / `bing` / `google` / `wikipedia` |
 
 返回 JSON 数组（无结果时返回 `[]`），字段为 `title`、`url`、`snippet`、`engine`；新闻结果额外带 `source`、`date`。所有引擎并发执行，结果按 URL 去重后**轮转交织**，一次查询能同时引用多个独立来源，也不会让某个引擎的结果被长列表挤掉。
 
@@ -109,6 +109,7 @@ Hint: Pass an absolute http:// or https:// URL, for example https://docs.python.
 | `bing` | `www.bing.com/search` | ✅ 第三 | 纯 HTTP 就能拿自然结果；点击包装链接（`/ck/a?...&u=a1<base64url>`）会解码回真实 URL，市场参数（`mkt`/`setlang`）跟随查询语言，中文查询不会变成英文足球比分 |
 | `google` | `news.google.com/rss/search` | ✅ 第四 | **是 Google News RSS，不是网页索引**，偏向新闻/技术报道；条目 URL 是 Google 新闻跳转链接，浏览器能打开，但 `web_fetch` 抓不到正文 |
 | `wikipedia` | `*.wikipedia.org/w/api.php` | ❌ 需显式指定 | 百科类兜底，公共 API 稳定；**自带**描述性 User-Agent，因为 Wikimedia 对伪装浏览器的客户端直接返回 403 |
+| `firecrawl` | `api.firecrawl.dev/v2/search` | ❌ 需显式指定 | 不抓 SERP，直接调 JSON 搜索接口：免 key 免注册，但按客户端 IP 限流。适合 HTML 端点对脚本客户端不给自己结果的网络环境；`snippet` 是页面摘录，截断到 4000 字符；遇到 5xx 或空 `200` body 会重试两次再判失败 |
 
 默认顺序：`google_web` → `duckduckgo` → `bing` → `google`。单个引擎失败不影响整体，其余引擎结果照常返回；全部失败或全部无结果时返回 `[]`。
 
@@ -164,7 +165,7 @@ TLS 校验始终保持开启：启动时用 [`truststore`](https://github.com/se
 - 不用于批量爬取、登录后抓取或转载受版权保护的内容；
 - 把结果当作**线索**而非授权数据，引用时给出原文链接。
 
-抓取 HTML 端点天然不稳定：上游改版可能随时让某个引擎失效。**本项目不保证可用性与结果正确性**，引擎失效、被网络阻断或结果降级属于端点特性，不作为缺陷修复承诺。MIT 许可，按“现状”提供。
+抓取 HTML 端点天然不稳定：上游改版可能随时让某个引擎失效。**本项目不保证可用性与结果正确性**，引擎失效、被网络阻断或结果降级属于端点特性，不作为缺陷修复承诺。有两种降级会伪装成正常成功，值得点名：DuckDuckGo 的 HTML 端点用 **HTTP 202 + anomaly 页**应答（没有结果，也不报错）；Bing 对脚本客户端返回**诱饵 SERP**——页面标题回显你的查询，结果却属于别的查询（实测会出现体育站、成人站、无关电商页）。因此优先选能报出自己结果的通道（`google_web`，或 `firecrawl` 这类 JSON API），并且不要把和自己查询对不上的结果当真。MIT 许可，按“现状”提供。
 
 ## 开发
 
