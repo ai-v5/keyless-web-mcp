@@ -11,7 +11,7 @@ Supported variables
     URL (``http://127.0.0.1:7890``). Direct connections are always tried first.
 ``KEYLESS_WEB_ENGINES``
     Comma separated default engine list. Default:
-    ``google_web,duckduckgo,bing,google``.
+    ``google_web,firecrawl,duckduckgo,google``.
 ``KEYLESS_WEB_MIN_INTERVAL``
     Minimum seconds between two requests to the same host. Default ``1.0``;
     ``0`` disables the rate limiter.
@@ -64,11 +64,19 @@ ENGINE_NAMES: tuple[str, ...] = (
 #: Engine order used when the caller does not pass ``engines``.
 #:
 #: ``google_web`` renders ``google.com/search`` in a headless browser, so it is
-#: the only engine that reads the real web index; ``duckduckgo`` and ``bing`` are
-#: plain HTTP backends that work without a browser, and ``google`` is Google News
-#: RSS (see :mod:`keyless_web.engines.google_news`). Results from all of them are
+#: the only engine that reads the real web index; ``firecrawl`` is a JSON search
+#: API that needs no key; ``duckduckgo`` is a plain HTTP backend that works
+#: without a browser, and ``google`` is Google News RSS (see
+#: :mod:`keyless_web.engines.google_news`). Results from all of them are
 #: interleaved round-robin, so each backend contributes what it ranks highest.
-DEFAULT_ENGINES: tuple[str, ...] = ("google_web", "duckduckgo", "bing", "google")
+#:
+#: ``bing`` is deliberately *not* in this list. It is still selectable by name,
+#: but ``www.bing.com/search`` answers a scripted client with a decoy SERP whose
+#: hits belong to other queries while the page title echoes the requested one --
+#: plausible-looking noise, which is worse than no result and cannot be told
+#: apart downstream. A default that silently returns someone else's results is
+#: not a default worth shipping.
+DEFAULT_ENGINES: tuple[str, ...] = ("google_web", "firecrawl", "duckduckgo", "google")
 
 DEFAULT_TIMEOUT = 15.0
 DEFAULT_MIN_INTERVAL = 1.0
