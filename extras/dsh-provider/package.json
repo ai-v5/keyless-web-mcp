@@ -1,7 +1,6 @@
 {
   "name": "dsh-plugin-keyless-web",
   "version": "0.1.0",
-  "private": true,
   "description": "DeepSeek Harness web providers backed by keyless-web-mcp: keyless search and page reading.",
   "type": "module",
   "license": "MIT",
@@ -32,7 +31,8 @@
     "keyless"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=20",
+    "dsh": ">=0.2.0"
   },
   "dsh": {
     "bundle": {
