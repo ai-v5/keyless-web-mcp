@@ -48,7 +48,10 @@ SEARCH_DESCRIPTION = (
     '"firecrawl" is a JSON search API that needs no key but is rate limited '
     'per client address, "google" is Google News RSS (news and tech coverage, '
     'no general web index), and "wikipedia" is the '
-    "encyclopedia. max_results must be 1-20. Always valid JSON: an empty array [] "
+    "encyclopedia. An engine whose hits share no term with the query is dropped "
+    "whole (its results belong to another query), so a short list can mean the "
+    "other backends answered something else. max_results must be 1-20. Always "
+    "valid JSON: an empty array [] "
     "means no engine produced results (retry with different terms or another "
     "engine); on failure it returns a text starting with 'error[KEYLESS_...]:' "
     "plus a Hint."

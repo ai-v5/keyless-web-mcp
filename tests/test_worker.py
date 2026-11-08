@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 
 from keyless_web import worker as worker_module
+from keyless_web.engines import EngineHealth, SearchReport
 from keyless_web.engines.base import SearchResult
 from keyless_web.errors import (
     KEYLESS_BAD_REQUEST,
@@ -66,25 +67,31 @@ def stub_search(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any]]:
     """Replace the engine orchestrator with a recorder returning fixed results."""
     seen: dict[str, Any] = {}
 
-    def fake_search(query: str, **kwargs: Any) -> list[SearchResult]:
+    def fake_search(query: str, **kwargs: Any) -> SearchReport:
         seen["query"] = query
         seen.update(kwargs)
-        return [
-            SearchResult(
-                title="Asyncio basics",
-                url="https://example.com/asyncio",
-                snippet="event loops",
-                engine="duckduckgo",
+        return SearchReport(
+            results=(
+                SearchResult(
+                    title="Asyncio basics",
+                    url="https://example.com/asyncio",
+                    snippet="event loops",
+                    engine="duckduckgo",
+                ),
+                SearchResult(
+                    title="News hit",
+                    url="https://example.com/news",
+                    snippet="release",
+                    engine="google",
+                    source="Example News",
+                    date="2026-11-01",
+                ),
             ),
-            SearchResult(
-                title="News hit",
-                url="https://example.com/news",
-                snippet="release",
-                engine="google",
-                source="Example News",
-                date="2026-11-01",
+            engines=(
+                EngineHealth(name="duckduckgo", returned=1, matched=1),
+                EngineHealth(name="bing", returned=4, matched=0, dropped="decoy"),
             ),
-        ]
+        )
 
     monkeypatch.setattr(worker_module, "run_search", fake_search)
     yield seen
@@ -211,6 +218,15 @@ def test_search_maps_engine_results_to_the_result_shape(stub_search: dict[str, A
     assert result["results"][1]["source"] == "Example News"
 
 
+def test_search_reports_engine_health(stub_search: dict[str, Any]) -> None:
+    """The dropped-backend reason has to reach the caller, not just the log."""
+    (response,) = _serve({"id": 1, "method": "search", "params": {"query": "asyncio"}})
+
+    engines = response["result"]["engines"]
+    assert engines[0] == {"name": "duckduckgo", "returned": 1, "matched": 1}
+    assert engines[1] == {"name": "bing", "returned": 4, "matched": 0, "dropped": "decoy"}
+
+
 def test_search_passes_the_result_limit_and_engines_through(stub_search: dict[str, Any]) -> None:
     _serve(
         {
@@ -238,18 +254,23 @@ def test_search_defaults_and_caps_max_results(stub_search: dict[str, Any]) -> No
 def test_truncated_is_false_when_the_limit_is_not_reached(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(worker_module, "run_search", lambda *a, **k: [])
+    monkeypatch.setattr(worker_module, "run_search", lambda *a, **k: SearchReport((), ()))
 
     response = _serve({"id": 1, "method": "search", "params": {"query": "nothing"}})[0]
 
-    assert response["result"] == {"query": "nothing", "results": [], "truncated": False}
+    assert response["result"] == {
+        "query": "nothing",
+        "results": [],
+        "truncated": False,
+        "engines": [],
+    }
 
 
 def test_truncated_is_true_when_the_limit_is_filled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     hit = SearchResult(title="t", url="https://example.com/t", engine="duckduckgo")
-    monkeypatch.setattr(worker_module, "run_search", lambda *a, **k: [hit])
+    monkeypatch.setattr(worker_module, "run_search", lambda *a, **k: SearchReport((hit,), ()))
 
     response = _serve({"id": 1, "method": "search", "params": {"query": "x", "maxResults": 1}})[0]
 
@@ -368,9 +389,11 @@ def test_unexpected_failure_is_mapped_not_raised(monkeypatch: pytest.MonkeyPatch
 
 
 def test_a_slow_request_does_not_block_a_fast_one(monkeypatch: pytest.MonkeyPatch) -> None:
-    def slow_search(query: str, **_kwargs: Any) -> list[SearchResult]:
+    def slow_search(query: str, **_kwargs: Any) -> SearchReport:
         time.sleep(0.3)
-        return [SearchResult(title=query, url="https://example.com/slow", engine="duckduckgo")]
+        return SearchReport(
+            (SearchResult(title=query, url="https://example.com/slow", engine="duckduckgo"),), ()
+        )
 
     monkeypatch.setattr(worker_module, "run_search", slow_search)
     monkeypatch.setattr(
@@ -478,8 +501,11 @@ def test_subprocess_reports_a_bad_url_without_a_traceback() -> None:
 
 
 def test_unicode_survives_a_roundtrip(monkeypatch: pytest.MonkeyPatch) -> None:
-    def chinese_search(query: str, **_kwargs: Any) -> list[SearchResult]:
-        return [SearchResult(title="分布式缓存", url="https://example.com/zh", engine="duckduckgo")]
+    def chinese_search(query: str, **_kwargs: Any) -> SearchReport:
+        return SearchReport(
+            (SearchResult(title="分布式缓存", url="https://example.com/zh", engine="duckduckgo"),),
+            (),
+        )
 
     monkeypatch.setattr(worker_module, "run_search", chinese_search)
 
@@ -489,8 +515,11 @@ def test_unicode_survives_a_roundtrip(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_ensure_ascii_escapes_non_ascii_output(monkeypatch: pytest.MonkeyPatch) -> None:
-    def chinese_search(query: str, **_kwargs: Any) -> list[SearchResult]:
-        return [SearchResult(title="分布式缓存", url="https://example.com/zh", engine="duckduckgo")]
+    def chinese_search(query: str, **_kwargs: Any) -> SearchReport:
+        return SearchReport(
+            (SearchResult(title="分布式缓存", url="https://example.com/zh", engine="duckduckgo"),),
+            (),
+        )
 
     monkeypatch.setattr(worker_module, "run_search", chinese_search)
     out = io.StringIO()
