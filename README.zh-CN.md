@@ -113,6 +113,20 @@ Hint: Pass an absolute http:// or https:// URL, for example https://docs.python.
 
 默认顺序：`google_web` → `firecrawl` → `duckduckgo` → `google`。单个引擎失败不影响整体，其余引擎结果照常返回；全部失败或全部无结果时返回 `[]`。
 
+### 答非所问的后端会被整组丢弃
+
+面向浏览器的搜索端点，可能对脚本客户端返回**不是它自己结果**的东西：Bing 返回别的查询拼出来的诱饵 SERP，DuckDuckGo 返回 anomaly 页。这两种响应在结构上和正常结果一模一样（同样的块、同样的“共 N 条结果”、标题里还回显你的查询），进程内唯一能识破的证据就是**结果和查询对不上**。
+
+所以每个引擎的结果会先做一次词面校验（大小写不敏感的子串匹配；拉丁词取 2 字符以上，CJK 连续串整体作为一个词）。**整组没有一条命中任何词**的引擎，会在合并前被整组丢弃，并记录原因。只判整组、不判单条：真结果完全可能一个词都不重合（比如 `NCCL timeout` 命中一篇不提该词的容错文章），单条丢弃会误伤。如果**所有**非空分组都会被丢弃，这一次调用就关闭门闸，宁可给数据也不假装“无结果”。
+
+`web_search` 的返回格式不变（仍是 JSON 数组）；每个后端的记录留给代码读取（`keyless_web.engines.search_with_report`，以及 JSON-lines worker 的 `search` 结果里的 `engines` 字段）：
+
+```
+{"name": "bing", "returned": 10, "matched": 0, "dropped": "no hit shared a term with the query"}
+```
+
+门闸只是安全网，不是排序：它能挡住整组跑偏的后端，挡不住“恰好提到该词但答非所问”的结果，也分不清 `NCCL` 是显卡通信库还是天主教教理领袖会议。
+
 ## 配置项（环境变量）
 
 | 变量 | 默认 | 含义 |

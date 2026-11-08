@@ -26,8 +26,11 @@ Response (one line, UTF-8), matched to the request by ``id``::
 
 ``id`` is echoed, never interpreted, so a caller may use integers or strings.
 ``result`` for ``search`` is ``{"query", "results": [{title, url, snippet,
-engine, source?, date?}], "truncated"}``; for ``fetch`` it is ``{"url",
-"statusCode", "text", "truncated"}``. A malformed line still gets an answer
+engine, source?, date?}], "truncated", "engines": [{name, returned, matched,
+dropped?}]}``; for ``fetch`` it is ``{"url", "statusCode", "text",
+"truncated"}``. ``engines`` carries one entry per backend: how many hits it
+returned, how many of them share a term with the query, and why its whole answer
+was dropped when it was. A malformed line still gets an answer
 (``id: null``, ``KEYLESS_BAD_REQUEST``) so the caller never hangs.
 
 Requests run on a small thread pool, so a slow search does not block a fetch
@@ -55,7 +58,7 @@ from .config import (
     MIN_MAX_CHARS,
 )
 from .engines import available_engines
-from .engines import search as run_search
+from .engines import search_with_report as run_search
 from .errors import BadRequestError, KeylessWebError
 from .fetch import fetch_document
 from .net.transport import inject_system_trust, to_keyless_error
@@ -119,8 +122,10 @@ def run_search_request(params: Mapping[str, Any]) -> dict[str, Any]:
         params: ``{"query": str, "maxResults"?: int, "engines"?: list[str]}``.
 
     Returns:
-        ``{"query", "results", "truncated"}``, where ``truncated`` says the hit
-        list filled the requested limit and may therefore be incomplete.
+        ``{"query", "results", "truncated", "engines"}``, where ``truncated``
+        says the hit list filled the requested limit and may therefore be
+        incomplete, and ``engines`` reports what each backend returned,
+        matched, and whether its whole answer was dropped.
 
     Raises:
         BadRequestError: a parameter is missing or invalid.
@@ -128,11 +133,12 @@ def run_search_request(params: Mapping[str, Any]) -> dict[str, Any]:
     """
     query = _string_param(params, "query")
     limit = _clamp(params.get("maxResults"), 1, MAX_SEARCH_RESULTS, DEFAULT_MAX_RESULTS)
-    results = run_search(query, engines=_engines_param(params), max_results=limit)
+    report = run_search(query, engines=_engines_param(params), max_results=limit)
     return {
         "query": query,
-        "results": [item.to_dict() for item in results],
-        "truncated": len(results) >= limit,
+        "results": [item.to_dict() for item in report.results],
+        "truncated": len(report.results) >= limit,
+        "engines": [item.to_dict() for item in report.engines],
     }
 
 

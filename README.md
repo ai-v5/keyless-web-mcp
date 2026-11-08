@@ -162,6 +162,32 @@ hits are interleaved round-robin, so one answer can cite several independent sou
 backend disappearing behind a longer list. A single engine failing never fails the call; if every
 engine fails or finds nothing, `web_search` returns `[]`.
 
+### A backend that answers a different query
+
+A consumer search endpoint may answer a scripted client with something other than its own results:
+Bing hands back a decoy SERP built from other queries, DuckDuckGo an "anomaly" page. Both look
+legitimate — same blocks, same result count, same echoed query in the title — so the only in-process
+evidence is that the hits have nothing to do with the query.
+
+Each engine's hits are therefore checked against the query's terms (substring, case-insensitive,
+Latin words of two characters or more, CJK runs as-is). A group where **no** hit shares a term is
+discarded whole, before the merge, and the reason is recorded. Only whole groups are judged: a
+relevant hit can share no term with the query at all ("NCCL timeout" → a fault-tolerance article that
+never names it), so individual hits are never dropped. If *every* non-empty group would be discarded,
+the gate switches itself off for that call rather than turning "some data" into "no data".
+
+`web_search` still returns the same JSON array; the per-engine record is available to code that asks
+for it (`keyless_web.engines.search_with_report`, and the `engines` member of the JSON-lines worker's
+`search` result):
+
+```
+{"name": "bing", "returned": 10, "matched": 0, "dropped": "no hit shared a term with the query"}
+```
+
+The gate is a safety net, not a ranking: it cannot rescue a backend that answers with plausible but
+wrong hits that happen to mention a query term, and it cannot tell `NCCL` the library from `NCCL` the
+catechetical-leaders conference.
+
 ## Configuration
 
 Everything is read from the environment, once, at start-up.
